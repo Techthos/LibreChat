@@ -885,6 +885,7 @@ export type UIResource = {
   serverName?: string;
   toolName?: string;
   structuredContent?: Record<string, unknown>;
+  content?: unknown[];
   csp?: {
     connectDomains?: string[];
     resourceDomains?: string[];
