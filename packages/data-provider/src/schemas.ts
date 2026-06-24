@@ -898,6 +898,7 @@ export type UIResource = {
     geolocation?: Record<string, never>;
     clipboardWrite?: Record<string, never>;
   };
+  toolArgs?: Record<string, unknown>;
   [key: string]: unknown;
 };
 
