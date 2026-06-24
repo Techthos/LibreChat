@@ -899,6 +899,7 @@ export type UIResource = {
     clipboardWrite?: Record<string, never>;
   };
   toolArgs?: Record<string, unknown>;
+  isError?: boolean;
   [key: string]: unknown;
 };
 
