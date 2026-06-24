@@ -900,6 +900,7 @@ export type UIResource = {
   };
   toolArgs?: Record<string, unknown>;
   isError?: boolean;
+  resultMeta?: Record<string, unknown>;
   [key: string]: unknown;
 };
 
