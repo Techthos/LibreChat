@@ -19,7 +19,7 @@ import {
 import { useMCPIconMap, useAppBridge, useUISizeMessage } from '~/hooks/MCP';
 import { useLocalize, useProgress, useExpandCollapse } from '~/hooks';
 import { ToolIcon, getToolIconType, isError } from './ToolOutput';
-import { useIsMessagesViewReadOnly } from '~/Providers';
+import { useIsMessagesViewReadOnly, useMessageContext } from '~/Providers';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
 import ProgressText from './ProgressText';
@@ -78,7 +78,10 @@ const MCPAppView = React.memo(function MCPAppView({
     () => setTornDown(true),
   );
 
-  const handleRawHeight = useCallback((newHeight: number) => setHeight(newHeight), []);
+  const handleRawHeight = useCallback((newHeight: number) => {
+    setHeight(newHeight);
+    setLoaded(true);
+  }, []);
   useUISizeMessage(rawIframeRef, handleRawHeight);
 
   if (tornDown) {
@@ -95,13 +98,24 @@ const MCPAppView = React.memo(function MCPAppView({
     );
   }
   if (!isAppBacked && app.text) {
+    const ready = loaded || timedOut;
     return (
-      <div className="my-2">
+      <div className="relative my-2" style={height ? { height } : { minHeight: '200px' }}>
+        {!ready && (
+          <div className="absolute inset-0 flex items-center gap-2 rounded-lg border border-border-light bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+            {localize('com_ui_loading_interactive_view')}
+          </div>
+        )}
         <iframe
           ref={rawIframeRef}
           srcDoc={appendAutoSizeScript(app.text)}
           sandbox="allow-scripts"
-          style={{ width: '100%', height: height ?? undefined, minHeight: '200px', border: 'none' }}
+          style={{
+            width: '100%',
+            height: height ?? '100%',
+            border: 'none',
+            opacity: ready ? 1 : 0,
+          }}
           title={app.uri}
         />
       </div>
@@ -291,15 +305,24 @@ export default function ToolCall({
     [args, output],
   );
 
+  const { markerResourceIds, isSubmitting: isStreaming } = useMessageContext();
+
   const mcpApps = useMemo(() => {
     const uiResources: UIResource[] =
       attachments
         ?.filter((a) => a.type === Tools.ui_resources)
         .flatMap((a) => (a[Tools.ui_resources] ?? []) as UIResource[]) ?? [];
-    return uiResources.filter(
-      (r) => isMcpAppResource(r) || (r.text && (r.mimeType ?? 'text/html').includes('html')),
-    );
-  }, [attachments]);
+    return uiResources.filter((r) => {
+      const isRenderable =
+        isMcpAppResource(r) || (r.text && (r.mimeType ?? 'text/html').includes('html'));
+      const placedInline = r.resourceId != null && markerResourceIds?.has(r.resourceId);
+      /** The tool result lands before the model streams its `\ui{...}` marker, so rendering the
+       *  iframe here now and handing off to the inline marker spot once the marker arrives remounts
+       *  it, loading twice. Defer the tool-call render until the stream settles: by then a marker
+       *  either placed it inline (kept suppressed) or none did (shown here, mounted once). */
+      return isRenderable && !placedInline && !isStreaming;
+    });
+  }, [attachments, markerResourceIds, isStreaming]);
 
   const authDomain = useMemo(() => {
     return parsedAuthUrl?.hostname ?? '';

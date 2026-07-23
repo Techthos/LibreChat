@@ -10,6 +10,11 @@ type MessageContext = {
   isSubmitting?: boolean;
   /** Whether this is the latest message in the conversation */
   isLatestMessage?: boolean;
+  /**
+   * Resource ids the assistant placed inline via `\ui{...}` markers in this message's text.
+   * The tool-call render skips these so a marker-referenced widget is not drawn twice.
+   */
+  markerResourceIds?: ReadonlySet<string>;
 };
 
 export const MessageContext = createContext<MessageContext>({} as MessageContext);

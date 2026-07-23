@@ -14,6 +14,7 @@ import {
   groupSequentialToolCalls,
 } from '~/utils';
 import { ParallelContentRenderer, type PartWithIndex } from './ParallelContent';
+import { extractUIResourceMarkerIds } from '~/components/MCPUIResource/plugin';
 import { MessageContext, SearchContext } from '~/Providers';
 import PendingSkillCall from './Parts/PendingSkillCall';
 import { EditTextPart, EmptyText } from './Parts';
@@ -55,6 +56,7 @@ type PartWithContextProps = {
   isLast: boolean;
   partAttachments: TAttachment[] | undefined;
   hideAttachments?: boolean;
+  markerResourceIds?: ReadonlySet<string>;
   onToolExpand?: () => void;
 };
 
@@ -71,6 +73,7 @@ const PartWithContext = memo(function PartWithContext({
   isLast,
   partAttachments,
   hideAttachments,
+  markerResourceIds,
   onToolExpand,
 }: PartWithContextProps) {
   const contextValue = useMemo(
@@ -82,8 +85,9 @@ const PartWithContext = memo(function PartWithContext({
       nextType,
       isSubmitting,
       isLatestMessage,
+      markerResourceIds,
     }),
-    [messageId, conversationId, idx, nextType, isSubmitting, isLatestMessage],
+    [messageId, conversationId, idx, nextType, isSubmitting, isLatestMessage, markerResourceIds],
   );
 
   return (
@@ -160,6 +164,20 @@ const ContentParts = memo(function ContentParts({
    *  array so EditTextPart indices still map onto the stored message content. */
   const normalizedContent = useMemo(() => normalizeThinkParts(content), [content]);
   const attachmentMap = useMemo(() => mapAttachments(attachments ?? []), [attachments]);
+
+  /** Resource ids the assistant placed inline via `\ui{...}` markers, so the tool-call render can
+   *  skip them and the widget is drawn once at the model-directed spot rather than twice. */
+  const markerResourceIds = useMemo(() => {
+    const ids = new Set<string>();
+    (normalizedContent ?? []).forEach((part) => {
+      if (!part || part.type !== ContentTypes.TEXT) {
+        return;
+      }
+      const text = typeof part.text === 'string' ? part.text : (part.text?.value ?? '');
+      extractUIResourceMarkerIds(text).forEach((id) => ids.add(id));
+    });
+    return ids;
+  }, [normalizedContent]);
   const effectiveIsSubmitting = isLatestMessage ? isSubmitting : false;
   const toolGroupExpansionRef = useRef(new Map<string, ToolCallGroupExpansionState>());
   const fallbackScopeRef = useRef({ messageId, scope: 0 });
@@ -255,6 +273,7 @@ const ContentParts = memo(function ContentParts({
           isCreatedByUser={isCreatedByUser}
           nextType={normalizedContent?.[idx + 1]?.type}
           isSubmitting={effectiveIsSubmitting}
+          markerResourceIds={markerResourceIds}
           partAttachments={filterAttachmentsForPart(
             attachmentMap[getToolCallId(part)],
             getPartAgentId(part),
@@ -271,6 +290,7 @@ const ContentParts = memo(function ContentParts({
       isLast,
       isLatestMessage,
       messageId,
+      markerResourceIds,
     ],
   );
 
@@ -289,6 +309,7 @@ const ContentParts = memo(function ContentParts({
           isCreatedByUser={isCreatedByUser}
           nextType={normalizedContent?.[idx + 1]?.type}
           isSubmitting={effectiveIsSubmitting}
+          markerResourceIds={markerResourceIds}
           partAttachments={filterAttachmentsForPart(
             attachmentMap[getToolCallId(part)],
             getPartAgentId(part),
@@ -307,6 +328,7 @@ const ContentParts = memo(function ContentParts({
       isLast,
       isLatestMessage,
       messageId,
+      markerResourceIds,
     ],
   );
 

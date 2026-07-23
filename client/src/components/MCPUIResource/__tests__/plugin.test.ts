@@ -1,4 +1,4 @@
-import { mcpUIResourcePlugin, UI_RESOURCE_MARKER } from '../plugin';
+import { mcpUIResourcePlugin, UI_RESOURCE_MARKER, extractUIResourceMarkerIds } from '../plugin';
 import type { Node } from 'unist';
 import type { UIResourceNode } from '../types';
 
@@ -296,6 +296,40 @@ describe('mcpUIResourcePlugin', () => {
         expect(children[0].type).toBe('mcp-ui-resource');
         expect(children[0].data.hProperties).toEqual({ resourceId: id });
       });
+    });
+  });
+
+  describe('extractUIResourceMarkerIds', () => {
+    it('returns the id from a single marker', () => {
+      expect(extractUIResourceMarkerIds(`Here ${UI_RESOURCE_MARKER}{abc123}`)).toEqual(['abc123']);
+    });
+
+    it('expands a carousel marker into every id', () => {
+      expect(extractUIResourceMarkerIds(`${UI_RESOURCE_MARKER}{id1,id2,id3}`)).toEqual([
+        'id1',
+        'id2',
+        'id3',
+      ]);
+    });
+
+    it('collects ids across multiple markers in one string', () => {
+      const text = `${UI_RESOURCE_MARKER}{a} then ${UI_RESOURCE_MARKER}{b,c}`;
+      expect(extractUIResourceMarkerIds(text)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('returns an empty array when no marker is present', () => {
+      expect(extractUIResourceMarkerIds('no markers here')).toEqual([]);
+      expect(extractUIResourceMarkerIds(`${UI_RESOURCE_MARKER}{}`)).toEqual([]);
+    });
+
+    it('is stable across repeated calls (shared global regex lastIndex reset)', () => {
+      const text = `${UI_RESOURCE_MARKER}{x,y}`;
+      expect(extractUIResourceMarkerIds(text)).toEqual(['x', 'y']);
+      expect(extractUIResourceMarkerIds(text)).toEqual(['x', 'y']);
+    });
+
+    it('tolerates non-string input', () => {
+      expect(extractUIResourceMarkerIds(undefined as unknown as string)).toEqual([]);
     });
   });
 });

@@ -58,7 +58,10 @@ export function MCPUIResource(props: MCPUIResourceProps) {
     }
   }, []);
 
-  const handleRawHeight = useCallback((newHeight: number) => setHeight(newHeight), []);
+  const handleRawHeight = useCallback((newHeight: number) => {
+    setHeight(newHeight);
+    setLoaded(true);
+  }, []);
   useUISizeMessage(rawIframeRef, handleRawHeight);
 
   useAppBridge(
@@ -126,13 +129,27 @@ export function MCPUIResource(props: MCPUIResourceProps) {
     }
 
     if (uiResource.text) {
+      const ready = loaded || timedOut;
       return (
-        <span className="mx-1 inline-block w-full align-middle">
+        <span
+          className="relative mx-1 inline-block w-full align-middle"
+          style={height ? { height } : { minHeight: '200px' }}
+        >
+          {!ready && (
+            <div className="absolute inset-0 flex items-center gap-2 rounded-lg border border-border-light bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+              {localize('com_ui_loading_interactive_view')}
+            </div>
+          )}
           <iframe
             ref={rawIframeRef}
             srcDoc={appendAutoSizeScript(uiResource.text)}
             sandbox="allow-scripts"
-            style={{ width: '100%', height: height ?? undefined, minHeight: '200px', border: 'none' }}
+            style={{
+              width: '100%',
+              height: height ?? '100%',
+              border: 'none',
+              opacity: ready ? 1 : 0,
+            }}
             title={uiResource.uri}
           />
         </span>

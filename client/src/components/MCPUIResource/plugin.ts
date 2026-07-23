@@ -7,6 +7,28 @@ export const UI_RESOURCE_MARKER = '\\ui';
 export const UI_RESOURCE_PATTERN = /\\ui\{([\w]+(?:,[\w]+)*)\}/g;
 
 /**
+ * Collects every resource id referenced by `\ui{...}` markers in a text block, expanding comma
+ * groups. Used to detect which resources the assistant placed inline so the redundant tool-call
+ * render can be suppressed for them.
+ */
+export function extractUIResourceMarkerIds(text: string): string[] {
+  if (typeof text !== 'string' || !text.includes(UI_RESOURCE_MARKER)) {
+    return [];
+  }
+  const ids: string[] = [];
+  UI_RESOURCE_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = UI_RESOURCE_PATTERN.exec(text)) !== null) {
+    match[1]
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .forEach((id) => ids.push(id));
+  }
+  return ids;
+}
+
+/**
  * Process text nodes and replace UI resource markers with components
  */
 function processTree(tree: Node) {
