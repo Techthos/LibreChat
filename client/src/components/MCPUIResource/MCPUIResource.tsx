@@ -1,8 +1,13 @@
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import {
+  getMCPSandboxUrl,
+  buildAppToolResult,
+  isMcpAppResource,
+  appendAutoSizeScript,
+} from '~/utils/mcpApps';
 import { useConversationUIResources } from '~/hooks/Messages/useConversationUIResources';
-import { getMCPSandboxUrl, buildAppToolResult, isMcpAppResource } from '~/utils/mcpApps';
 import { useOptionalMessagesConversation, useIsMessagesViewReadOnly } from '~/Providers';
-import { useAppBridge } from '~/hooks/MCP';
+import { useAppBridge, useUISizeMessage } from '~/hooks/MCP';
 import { useLocalize } from '~/hooks';
 import { logger } from '~/utils';
 
@@ -26,6 +31,7 @@ export function MCPUIResource(props: MCPUIResourceProps) {
   const uiResource = conversationResourceMap.get(resourceId ?? '');
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const rawIframeRef = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [tornDown, setTornDown] = useState(false);
@@ -51,6 +57,9 @@ export function MCPUIResource(props: MCPUIResourceProps) {
       setLoaded(true);
     }
   }, []);
+
+  const handleRawHeight = useCallback((newHeight: number) => setHeight(newHeight), []);
+  useUISizeMessage(rawIframeRef, handleRawHeight);
 
   useAppBridge(
     iframeRef,
@@ -120,9 +129,10 @@ export function MCPUIResource(props: MCPUIResourceProps) {
       return (
         <span className="mx-1 inline-block w-full align-middle">
           <iframe
-            srcDoc={uiResource.text}
-            sandbox=""
-            style={{ width: '100%', minHeight: '200px', border: 'none' }}
+            ref={rawIframeRef}
+            srcDoc={appendAutoSizeScript(uiResource.text)}
+            sandbox="allow-scripts"
+            style={{ width: '100%', height: height ?? undefined, minHeight: '200px', border: 'none' }}
             title={uiResource.uri}
           />
         </span>

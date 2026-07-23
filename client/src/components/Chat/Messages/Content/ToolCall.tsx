@@ -10,10 +10,15 @@ import {
   actionDomainSeparator,
 } from 'librechat-data-provider';
 import type { TAttachment, UIResource } from 'librechat-data-provider';
-import { getMCPSandboxUrl, buildAppToolResult, isMcpAppResource } from '~/utils/mcpApps';
+import {
+  getMCPSandboxUrl,
+  buildAppToolResult,
+  isMcpAppResource,
+  appendAutoSizeScript,
+} from '~/utils/mcpApps';
+import { useMCPIconMap, useAppBridge, useUISizeMessage } from '~/hooks/MCP';
 import { useLocalize, useProgress, useExpandCollapse } from '~/hooks';
 import { ToolIcon, getToolIconType, isError } from './ToolOutput';
-import { useMCPIconMap, useAppBridge } from '~/hooks/MCP';
 import { useIsMessagesViewReadOnly } from '~/Providers';
 import { AttachmentGroup } from './Parts';
 import ToolCallInfo from './ToolCallInfo';
@@ -33,6 +38,7 @@ const MCPAppView = React.memo(function MCPAppView({
   const localize = useLocalize();
   const readOnly = useIsMessagesViewReadOnly();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const rawIframeRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState<number | undefined>(undefined);
   const [loaded, setLoaded] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
@@ -72,6 +78,9 @@ const MCPAppView = React.memo(function MCPAppView({
     () => setTornDown(true),
   );
 
+  const handleRawHeight = useCallback((newHeight: number) => setHeight(newHeight), []);
+  useUISizeMessage(rawIframeRef, handleRawHeight);
+
   if (tornDown) {
     return null;
   }
@@ -89,9 +98,10 @@ const MCPAppView = React.memo(function MCPAppView({
     return (
       <div className="my-2">
         <iframe
-          srcDoc={app.text}
-          sandbox=""
-          style={{ width: '100%', minHeight: '200px', border: 'none' }}
+          ref={rawIframeRef}
+          srcDoc={appendAutoSizeScript(app.text)}
+          sandbox="allow-scripts"
+          style={{ width: '100%', height: height ?? undefined, minHeight: '200px', border: 'none' }}
           title={app.uri}
         />
       </div>

@@ -7,7 +7,12 @@ import type {
   Agents,
 } from 'librechat-data-provider';
 import type { ToolCallGroupExpansionState } from './ToolCallGroup';
-import { mapAttachments, filterAttachmentsForPart, groupSequentialToolCalls } from '~/utils';
+import {
+  mapAttachments,
+  normalizeThinkParts,
+  filterAttachmentsForPart,
+  groupSequentialToolCalls,
+} from '~/utils';
 import { ParallelContentRenderer, type PartWithIndex } from './ParallelContent';
 import { MessageContext, SearchContext } from '~/Providers';
 import PendingSkillCall from './Parts/PendingSkillCall';
@@ -151,6 +156,9 @@ const ContentParts = memo(function ContentParts({
   isLatestMessage,
   createdAt,
 }: ContentPartsProps) {
+  /** Render-time cleanup of inline think-tag pollution; edit mode keeps the raw
+   *  array so EditTextPart indices still map onto the stored message content. */
+  const normalizedContent = useMemo(() => normalizeThinkParts(content), [content]);
   const attachmentMap = useMemo(() => mapAttachments(attachments ?? []), [attachments]);
   const effectiveIsSubmitting = isLatestMessage ? isSubmitting : false;
   const toolGroupExpansionRef = useRef(new Map<string, ToolCallGroupExpansionState>());
@@ -214,7 +222,7 @@ const ContentParts = memo(function ContentParts({
    */
   const hasRealContent = useMemo(
     () =>
-      (content ?? []).some((part) => {
+      (normalizedContent ?? []).some((part) => {
         if (part == null) {
           return false;
         }
@@ -224,7 +232,7 @@ const ContentParts = memo(function ContentParts({
         const text = typeof part.text === 'string' ? part.text : (part.text?.value ?? '');
         return text.length > 0;
       }),
-    [content],
+    [normalizedContent],
   );
 
   const renderPendingSkills = () =>
@@ -245,7 +253,7 @@ const ContentParts = memo(function ContentParts({
           conversationId={conversationId}
           isLatestMessage={isLatestMessage}
           isCreatedByUser={isCreatedByUser}
-          nextType={content?.[idx + 1]?.type}
+          nextType={normalizedContent?.[idx + 1]?.type}
           isSubmitting={effectiveIsSubmitting}
           partAttachments={filterAttachmentsForPart(
             attachmentMap[getToolCallId(part)],
@@ -256,7 +264,7 @@ const ContentParts = memo(function ContentParts({
     },
     [
       attachmentMap,
-      content,
+      normalizedContent,
       conversationId,
       effectiveIsSubmitting,
       isCreatedByUser,
@@ -279,7 +287,7 @@ const ContentParts = memo(function ContentParts({
           conversationId={conversationId}
           isLatestMessage={isLatestMessage}
           isCreatedByUser={isCreatedByUser}
-          nextType={content?.[idx + 1]?.type}
+          nextType={normalizedContent?.[idx + 1]?.type}
           isSubmitting={effectiveIsSubmitting}
           partAttachments={filterAttachmentsForPart(
             attachmentMap[getToolCallId(part)],
@@ -292,7 +300,7 @@ const ContentParts = memo(function ContentParts({
     },
     [
       attachmentMap,
-      content,
+      normalizedContent,
       conversationId,
       effectiveIsSubmitting,
       isCreatedByUser,
@@ -303,17 +311,17 @@ const ContentParts = memo(function ContentParts({
   );
 
   const sequentialParts = useMemo<PartWithIndex[]>(() => {
-    if (!content) {
+    if (!normalizedContent) {
       return [];
     }
     const result: PartWithIndex[] = [];
-    content.forEach((part, idx) => {
+    normalizedContent.forEach((part, idx) => {
       if (part) {
         result.push({ part, idx });
       }
     });
     return result;
-  }, [content]);
+  }, [normalizedContent]);
 
   const groupedParts = useMemo(
     () =>
@@ -378,7 +386,7 @@ const ContentParts = memo(function ContentParts({
     );
   }
 
-  const safeContent = content ?? [];
+  const safeContent = normalizedContent ?? [];
   const showEmptyCursor = safeContent.length === 0 && effectiveIsSubmitting;
   const lastContentIdx = safeContent.length - 1;
 
@@ -389,7 +397,7 @@ const ContentParts = memo(function ContentParts({
       <ApprovalProvider>
         {renderPendingSkills()}
         <ParallelContentRenderer
-          content={content}
+          content={normalizedContent}
           messageId={messageId}
           createdAt={createdAt}
           conversationId={conversationId}

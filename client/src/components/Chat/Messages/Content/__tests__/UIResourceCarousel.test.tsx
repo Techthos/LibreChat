@@ -88,8 +88,10 @@ describe('UIResourceCarousel', () => {
     render(<UIResourceCarousel uiResources={[inlineResource]} />);
     const iframe = document.querySelector('iframe');
     expect(iframe).toBeInTheDocument();
-    // Non-app inline HTML renders inert (no allow-scripts); scripts run only via the sandbox proxy.
-    expect(iframe?.getAttribute('sandbox')).toBe('');
+    // Non-app inline HTML follows the mcp-ui convention: opaque-origin sandbox with allow-scripts
+    // (never allow-same-origin) so the embedded UI can post size/action messages.
+    expect(iframe?.getAttribute('sandbox')).toBe('allow-scripts');
+    expect(iframe?.getAttribute('srcdoc')).toContain('ui-size-change');
   });
 
   it('inline iframe does not have allow-same-origin', () => {

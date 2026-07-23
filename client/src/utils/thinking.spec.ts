@@ -1,4 +1,6 @@
-import { parseThinkingContent } from './thinking';
+import { ContentTypes } from 'librechat-data-provider';
+import type { TMessageContentParts } from 'librechat-data-provider';
+import { parseThinkingContent, normalizeThinkParts } from './thinking';
 
 describe('parseThinkingContent', () => {
   describe(':::thinking::: directive format', () => {
@@ -72,5 +74,69 @@ describe('parseThinkingContent', () => {
       expect(result.thinkingContent).toBe('');
       expect(result.regularContent).toBe('');
     });
+  });
+});
+
+describe('normalizeThinkParts', () => {
+  const think = (value: string): TMessageContentParts =>
+    ({ type: ContentTypes.THINK, think: value }) as TMessageContentParts;
+  const text = (value: string): TMessageContentParts =>
+    ({ type: ContentTypes.TEXT, text: value }) as TMessageContentParts;
+  const getThink = (part?: TMessageContentParts): string =>
+    (part as { think: string } | undefined)?.think ?? '';
+  const getText = (part?: TMessageContentParts): string =>
+    (part as { text: string } | undefined)?.text ?? '';
+
+  it('returns the same reference when no part carries think tags', () => {
+    const content = [think('clean reasoning'), text('clean answer')];
+    expect(normalizeThinkParts(content)).toBe(content);
+  });
+
+  it('returns undefined for undefined content', () => {
+    expect(normalizeThinkParts(undefined)).toBeUndefined();
+  });
+
+  it('splits duplicated raw think/text parts into reasoning and response', () => {
+    const raw = '<think>\nthe reasoning\n</think>\n\nthe answer';
+    const result = normalizeThinkParts([think(raw), text(raw)]);
+    expect(getThink(result?.[0])).toBe('the reasoning');
+    expect(getText(result?.[1])).toBe('the answer');
+  });
+
+  it('strips a stray leading </think> from a text part', () => {
+    const result = normalizeThinkParts([text('</think>\n\\ui{abc123}')]);
+    expect(getText(result?.[0])).toBe('\\ui{abc123}');
+  });
+
+  it('converts a lone inline-think text part into think + text parts', () => {
+    const result = normalizeThinkParts([text('<think>why</think>\n\nanswer')]);
+    expect(result).toHaveLength(2);
+    expect(result?.[0]?.type).toBe(ContentTypes.THINK);
+    expect(getThink(result?.[0])).toBe('why');
+    expect(getText(result?.[1])).toBe('answer');
+  });
+
+  it('keeps mid-stream unclosed think content in the think part only', () => {
+    const raw = '<think>\npartial reasoning';
+    const result = normalizeThinkParts([think(raw), text(raw)]);
+    expect(getThink(result?.[0])).toBe('partial reasoning');
+    expect(getText(result?.[1])).toBe('');
+  });
+
+  it('leaves non-think parts and clean parts untouched', () => {
+    const toolCall = {
+      type: ContentTypes.TOOL_CALL,
+      tool_call: { id: 'call_1', name: 'do_thing', args: '{}' },
+    } as unknown as TMessageContentParts;
+    const raw = '<think>r</think>\n\nanswer';
+    const result = normalizeThinkParts([toolCall, think(raw), text(raw)]);
+    expect(result?.[0]).toBe(toolCall);
+    expect(getThink(result?.[1])).toBe('r');
+    expect(getText(result?.[2])).toBe('answer');
+  });
+
+  it('does not treat <think> mid-text as reasoning', () => {
+    const content = [text('mention of <think> in prose')];
+    expect(normalizeThinkParts(content)).toBe(content);
   });
 });

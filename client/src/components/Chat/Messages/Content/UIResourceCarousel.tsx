@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import type { UIResource } from 'librechat-data-provider';
-import { getMCPSandboxUrl, buildAppToolResult, isMcpAppResource } from '~/utils/mcpApps';
+import {
+  getMCPSandboxUrl,
+  buildAppToolResult,
+  isMcpAppResource,
+  appendAutoSizeScript,
+} from '~/utils/mcpApps';
 import { useIsMessagesViewReadOnly } from '~/Providers';
-import { useAppBridge } from '~/hooks/MCP';
+import { useAppBridge, useUISizeMessage } from '~/hooks/MCP';
 import { useLocalize } from '~/hooks';
 
 interface UIResourceCarouselProps {
@@ -19,6 +24,7 @@ function MCPAppCard({
   onHeightChange?: (height: number) => void;
 }) {
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
+  const rawIframeRef = React.useRef<HTMLIFrameElement>(null);
   const localize = useLocalize();
   const readOnly = useIsMessagesViewReadOnly();
   const [loaded, setLoaded] = useState(false);
@@ -55,6 +61,12 @@ function MCPAppCard({
     () => setLoaded(true),
     () => setTornDown(true),
   );
+
+  const handleRawHeight = React.useCallback(
+    (height: number) => onHeightChange?.(height),
+    [onHeightChange],
+  );
+  useUISizeMessage(rawIframeRef, handleRawHeight);
 
   if (tornDown) {
     return null;
@@ -100,8 +112,9 @@ function MCPAppCard({
   if (resource.text) {
     return (
       <iframe
-        srcDoc={resource.text}
-        sandbox=""
+        ref={rawIframeRef}
+        srcDoc={appendAutoSizeScript(resource.text)}
+        sandbox="allow-scripts"
         style={{ width: '100%', height: '100%', border: 'none' }}
         title={resource.uri}
       />

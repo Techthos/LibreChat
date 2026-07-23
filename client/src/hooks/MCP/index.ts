@@ -6,3 +6,4 @@ export * from './useMCPConnectionStatus';
 
 export { useMCPIconMap } from './useMCPIconMap';
 export { useRemoveMCPTool } from './useRemoveMCPTool';
+export { default as useUISizeMessage } from './useUISizeMessage';

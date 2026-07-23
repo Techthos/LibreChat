@@ -49,6 +49,30 @@ export function buildAppToolResult(resource: UIResource): AppToolResult | undefi
   };
 }
 
+export const UI_SIZE_CHANGE_MESSAGE = 'ui-size-change';
+
+const AUTO_SIZE_SCRIPT = `<script>(function () {
+  var post = function () {
+    parent.postMessage(
+      { type: '${UI_SIZE_CHANGE_MESSAGE}', payload: { height: document.documentElement.scrollHeight } },
+      '*'
+    );
+  };
+  window.addEventListener('load', post);
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(post).observe(document.documentElement);
+  }
+})();</script>`;
+
+/**
+ * Appends a self-measuring script to raw `ui://` HTML so the host iframe can size itself to the
+ * content. The script posts the mcp-ui `ui-size-change` message, so resources that already
+ * report their size per the mcp-ui convention keep working identically.
+ */
+export function appendAutoSizeScript(html: string): string {
+  return html + AUTO_SIZE_SCRIPT;
+}
+
 export function getMCPSandboxUrl(): string {
   const env = import.meta.env as Record<string, string | undefined>;
   const base = env.VITE_MCP_SANDBOX_URL ?? `${apiBaseUrl()}/api/mcp/sandbox`;
